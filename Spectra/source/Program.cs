@@ -452,9 +452,7 @@ DRAW_ROTATING_HUE_BREATHING    11 rotatingHue:(0-255) frequency:(0-255) brightne
 		}
 
 		static void Main(string[] args)
-		{
-            var c = new SpectraController();
-            c.RunSpectraCommandLine();          
+		{         
 			Console.WriteLine("------ Spectra Controller ------");
 			InitializeCommands();
 			while (!ShouldQuit)
