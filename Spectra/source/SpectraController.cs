@@ -12,8 +12,9 @@ namespace Spectra
 	class SpectraController
 	{
         private Dictionary<String, MethodInfo> Commands;
-        private SerialPort port;
-        private bool running;
+        private SerialPort Port;
+        private bool Running;
+        private SpectraProcessor Processor;
 
         [SpectraCommand("h", 0, 1, "Help: h {Command Name: String?}")]
         public void Help(String[] args)
@@ -44,18 +45,18 @@ namespace Spectra
         [SpectraCommand("q", 0, 0, "Quit: q")]
         public void Quit(String[] args)
         {
-            running = false;
+            Running = false;
         }
 
         [SpectraCommand("c", 0, 0, @"Connect: c {Port Name: String? = 'COM3'} {Baud Rate: Int? = 230400}")]
         public void Connect(String[] args)
         {
-            if(port != null)
+            if(Port != null)
             {
                 Disconnect(null);
             }
 
-            if(args.Length == 0)
+            if(args == null || args.Length == 0)
             {
                 args = new String[] { "COM3", "230400" };
             } else if(args.Length != 2)
@@ -66,20 +67,20 @@ namespace Spectra
 
             try
             {
-                port = new SerialPort(args[0], Int32.Parse(args[1]), Parity.None, 8, StopBits.One);
-                port.Open();
+                Port = new SerialPort(args[0], Int32.Parse(args[1]), Parity.None, 8, StopBits.One);
+                Port.Open();
                 Console.WriteLine("Successfully opened port {0} at {1} bps.", args[0], args[1]);
             } catch(Exception e)
             {
                 Console.WriteLine("Failed to open port {0} at {1} bps.", args[0], args[1]);
-                port = null;
+                Port = null;
             }
         }
 
         [SpectraCommand("d", 0, 0, "Disconnect: d")]
         public void Disconnect(String[] args)
         {
-            if(port == null)
+            if(Port == null)
             {
                 Console.WriteLine("Failed to disconnect port, none open.");
                 return;
@@ -87,12 +88,12 @@ namespace Spectra
 
             try
             {
-                port.Close();
-                Console.WriteLine("Successfully disconnected port {0}.", port.PortName);
-                port = null;
+                Port.Close();
+                Console.WriteLine("Successfully disconnected port {0}.", Port.PortName);
+                Port = null;
             } catch(Exception e)
             {
-                Console.WriteLine("Failed to disconnect port {0}.", port.PortName);
+                Console.WriteLine("Failed to disconnect port {0}.", Port.PortName);
             }
         }
 
@@ -104,17 +105,38 @@ namespace Spectra
         3 = Scrolling Rainbow // Arg2[0-255] = Scroll Rate // Arg 3[0-255] = Frosting")]
         public void Spectrum(String[] args)
         {
-            Console.WriteLine("This is where I'd put my Spectrum constroller, if I had one!");
+            if(Port == null)
+            {
+                Connect(null);
+                if (Port == null) return;
+            }
+
+            //Configure Arduino here
+
+            Processor = new SpectraProcessor(Port);
+            Processor.Start();
+        }
+
+        [SpectraCommand("cl", 0, 0, "Clear: cl")]
+        public void Clear(String[] args)
+        {
+            if(Processor != null)
+            {
+                Processor.Stop();
+                Processor = null;
+            }
+
+            //Command arduino with clear
         }
 
 		public void RunSpectraCommandLine()
 		{
 			Commands = ParseSpectraCommands();
-            running = true;
+            Running = true;
 
             Console.WriteLine("------ Spectra Controller ------");
 
-            while (running)
+            while (Running)
 			{
 				Console.Write(">> ");
 
