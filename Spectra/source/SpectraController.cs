@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO.Ports;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -11,6 +12,7 @@ namespace Spectra
 	class SpectraController
 	{
         private Dictionary<String, MethodInfo> Commands;
+        private SerialPort port;
         private bool running;
 
         [SpectraCommand("h", 0, 1, "Help: h {Command Name: String?}")]
@@ -23,8 +25,16 @@ namespace Spectra
                     Array.ForEach(Commands.Values.ToArray(), (m) => Console.WriteLine(m.GetCustomAttribute<SpectraCommand>().usage + '\n'));
                     break;
                 case 1:
-                    Console.WriteLine(Commands[args[0]].GetCustomAttribute<SpectraCommand>().usage + '\n');
-                    break;
+                    if (Commands.ContainsKey(args[0]))
+                    {
+                        Console.WriteLine(Commands[args[0]].GetCustomAttribute<SpectraCommand>().usage + '\n');
+                        break;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Cannot invoke help on invalid command name.");
+                        break;
+                    }
                 default:
                     Console.WriteLine("Invalid use of command 'h'.\n");
                     break;
@@ -35,6 +45,55 @@ namespace Spectra
         public void Quit(String[] args)
         {
             running = false;
+        }
+
+        [SpectraCommand("c", 0, 0, @"Connect: c {Port Name: String? = 'COM3'} {Baud Rate: Int? = 230400}")]
+        public void Connect(String[] args)
+        {
+            if(port != null)
+            {
+                Disconnect(null);
+            }
+
+            if(args.Length == 0)
+            {
+                args = new String[] { "COM3", "230400" };
+            } else if(args.Length != 2)
+            {
+                Console.WriteLine("Connect accepts either 0 or 2 arguments.");
+                return;
+            }
+
+            try
+            {
+                port = new SerialPort(args[0], Int32.Parse(args[1]), Parity.None, 8, StopBits.One);
+                port.Open();
+                Console.WriteLine("Successfully opened port {0} at {1} bps.", args[0], args[1]);
+            } catch(Exception e)
+            {
+                Console.WriteLine("Failed to open port {0} at {1} bps.", args[0], args[1]);
+                port = null;
+            }
+        }
+
+        [SpectraCommand("d", 0, 0, "Disconnect: d")]
+        public void Disconnect(String[] args)
+        {
+            if(port == null)
+            {
+                Console.WriteLine("Failed to disconnect port, none open.");
+                return;
+            }
+
+            try
+            {
+                port.Close();
+                Console.WriteLine("Successfully disconnected port {0}.", port.PortName);
+                port = null;
+            } catch(Exception e)
+            {
+                Console.WriteLine("Failed to disconnect port {0}.", port.PortName);
+            }
         }
 
         [SpectraCommand("sp", 2, 3, 
@@ -53,7 +112,9 @@ namespace Spectra
 			Commands = ParseSpectraCommands();
             running = true;
 
-			while(running)
+            Console.WriteLine("------ Spectra Controller ------");
+
+            while (running)
 			{
 				Console.Write(">> ");
 
