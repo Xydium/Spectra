@@ -145,7 +145,15 @@ namespace Spectra
 				var args = input.Skip(1).ToArray();
 
                 if (Commands.ContainsKey(command))
-                    Commands[command].Invoke(this, new object[] { args });
+                {
+                    try
+                    {
+                        Commands[command].Invoke(this, new object[] { args });
+                    } catch(Exception e)
+                    {
+                        Console.WriteLine(e.Message);
+                    }
+                } 
                 else
                     Console.WriteLine("Invalid command. Execute command 'h' to see valid commands.\n");
 
