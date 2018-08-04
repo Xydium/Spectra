@@ -97,6 +97,27 @@ namespace Spectra
             }
         }
 
+        public void CommandArduino(String[] args)
+        {
+            if(Port == null)
+            {
+                Console.WriteLine("Cannot write to serial port, none open.");
+                return;
+            }
+
+            byte[] buffer = new byte[args.Length];
+
+            for (int i = 0; i < args.Length; i++)
+            {
+                buffer[i] = Byte.Parse(args[i]);
+            }
+            buffer[0] += 192;
+
+            Console.WriteLine("Sending Command: {0} ({1}) Metadata Length: {2}.", buffer[0] & 63, buffer[0], buffer.Length - 1);
+            Port.Write(buffer, 0, buffer.Length);
+            Thread.Sleep(100);
+        }
+
         [SpectraCommand("sp", 2, 3, 
 @"Spectrum: sp {Display Mode: Int!} {Arg2: Int!} {Arg3: Int?}
     Valid Display Modes:
@@ -111,7 +132,30 @@ namespace Spectra
                 if (Port == null) return;
             }
 
-            //Configure Arduino here
+            var mode = Int32.Parse(args[0]);
+            if (mode < 1 || mode > 3)
+            {
+                Console.WriteLine("Invalid Display Mode.");
+                return;
+            } else
+            {
+                if(mode == 2)
+                {
+                    if(args.Length != 2)
+                    {
+                        Console.WriteLine("Invalid argument count. Expected 2, received {0}", args.Length);
+                    }
+                }
+                else
+                {
+                    if(args.Length != 3)
+                    {
+                        Console.WriteLine("Invalid argument count. Expected 3, received {0}", args.Length);
+                    }
+                }
+            }
+
+            CommandArduino(args);
 
             Processor = new SpectraProcessor(Port);
             Processor.Start();
@@ -126,7 +170,7 @@ namespace Spectra
                 Processor = null;
             }
 
-            //Command arduino with clear
+            CommandArduino(new String[] { "0" });
         }
 
 		public void RunSpectraCommandLine()
