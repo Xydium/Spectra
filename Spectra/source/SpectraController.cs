@@ -97,6 +97,11 @@ namespace Spectra
             }
         }
 
+        [SpectraCommand("ca", 0, 10, 
+@"Command Arduino: c {Command Code: Int!} {arg1: Int?} ... {argN: Int?}
+    Valid Commands Codes:
+        0 = Use 'cl' Spectra Command
+      1-3 = Use 'sp' Spectra Command")]
         public void CommandArduino(String[] args)
         {
             if(Port == null)
@@ -216,7 +221,7 @@ namespace Spectra
 			return commands;
 		}
 
-		public static void NotYetMain(string[] args)
+		public static void Main(string[] args)
 		{
 			var spectra = new SpectraController();
 			spectra.RunSpectraCommandLine();

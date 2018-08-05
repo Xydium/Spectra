@@ -23,7 +23,7 @@ namespace Spectra
         private static readonly int BUFFER_SIZE = 4 * RATE * BYTES_PER_SAMPLE;
         private static readonly int LED_COUNT = 60;
         private static readonly int MIN_FREQUENCY = 20;
-        private static readonly int MAX_FREQUENCY = 20000;
+        private static readonly int MAX_FREQUENCY = 16000;
         private static readonly int PRE_GAIN = 1000;
         private static readonly int POST_GAIN = 10;
         private static readonly int GAIN_CLIP = 255;
@@ -68,11 +68,9 @@ namespace Spectra
             var buckets = new double[LED_COUNT];
             var bucketsBackBuffer = new double[buckets.Length];
             var streamBuffer = new byte[buckets.Length + 2];
-            var startTick = 0l;
 
             while (Running)
             {
-                startTick = Environment.TickCount;
                 Sample(sampleBuffer);
                 Fourier(sampleBuffer, fourierBuffer, fourierBufferComplex);
                 Bucketize(fourierBuffer, indices, buckets);
@@ -81,7 +79,7 @@ namespace Spectra
                 ExponentialAttenuation(buckets);
                 SoftNormalizeByMaximum(buckets);
                 Stream(buckets, streamBuffer);
-                WaitForNextFrame(startTick);
+                WaitForNextFrame();
             }
 
             StopRecording();
@@ -94,10 +92,12 @@ namespace Spectra
             Capture.DataAvailable += new EventHandler<WaveInEventArgs>(OnDataAvailable);
             WaveProvider = new OpenBufferedWaveProvider(Capture.WaveFormat);
             WaveProvider.BufferLength = BUFFER_SIZE;
-            WaveProvider.DiscardOnBufferOverflow = false;
+            WaveProvider.DiscardOnBufferOverflow = true;
             SampleProvider = WaveProvider.ToSampleProvider();
 
             Capture.StartRecording();
+
+            Console.WriteLine("Successfully started recording.");
 
             Thread.Sleep(1000);
         }
@@ -109,6 +109,7 @@ namespace Spectra
             Capture = null;
             WaveProvider = null;
             SampleProvider = null;
+            Console.WriteLine("Successfully terminated recording.");
         }
 
         private int[] GenerateIndexMap()
@@ -161,6 +162,8 @@ namespace Spectra
         private void Bucketize(double[] fourier, int[] indices, double[] buckets)
         {
             int frequencyOffset = (int) (MIN_FREQUENCY / FREQUENCY_RESOLUTION);
+            Array.Clear(buckets, 0, buckets.Length);
+
             for (int i = 0; i < indices.Length; i++)
             {
                 buckets[indices[i]] += fourier[i + frequencyOffset];
@@ -188,7 +191,8 @@ namespace Spectra
         {
             for (int i = 0; i < buckets.Length; i++)
             {
-                buckets[i] /= Math.Log(bucketCounts[i] + COUNT_NORMALIZATION_BASE, COUNT_NORMALIZATION_BASE) * POST_GAIN;
+                buckets[i] /= Math.Log(bucketCounts[i] + COUNT_NORMALIZATION_BASE, COUNT_NORMALIZATION_BASE);
+                buckets[i] *= POST_GAIN;
             }
         }
 
@@ -199,7 +203,11 @@ namespace Spectra
 
             for(int i = 0; i < buckets.Length; i++)
             {
-                buckets[i] = Math.Log(5, 2) * buckets[i] / denom;
+                result = Math.Log(5, 2) * buckets[i] / denom;
+                if(result < buckets[i])
+                {
+                    buckets[i] = result;
+                }
             }
         }
 
@@ -225,10 +233,18 @@ namespace Spectra
             Port.Write(stream, 0, stream.Length);
         }
 
-        private void WaitForNextFrame(long startTick)
+        private void WaitForNextFrame()
         {
-            var elapsed = (int)(Environment.TickCount - startTick);
-            Thread.Sleep(1 + FRAME_TIME - elapsed);
+            Thread.Sleep(FRAME_TIME);
+        }
+
+        private void PrintArray(Array a)
+        {
+            foreach(var e in a)
+            {
+                Console.Write(e.ToString().Substring(0, Math.Min(e.ToString().Length, 3)) + " ");
+            }
+            Console.WriteLine();
         }
 
         private void OnDataAvailable(object sender, WaveInEventArgs e)

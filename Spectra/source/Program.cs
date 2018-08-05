@@ -14,7 +14,7 @@ using System.Numerics;
 namespace Spectra
 {
 
-	class Spectra
+    class Spectra
 	{
 		static Dictionary<String, Func<string[], bool>> Commands = new Dictionary<String, Func<String[], bool>>();
 		static bool ShouldQuit = false;
@@ -451,10 +451,8 @@ DRAW_ROTATING_HUE_BREATHING    11 rotatingHue:(0-255) frequency:(0-255) brightne
 			//Commands.Add("r", Run);
 		}
 
-		static void Main(string[] args)
+		static void NoLongerMain(string[] args)
 		{
-            var c = new SpectraController();
-            c.RunSpectraCommandLine();
 			Console.WriteLine("------ Spectra Controller ------");
 			InitializeCommands();
 			while (!ShouldQuit)
