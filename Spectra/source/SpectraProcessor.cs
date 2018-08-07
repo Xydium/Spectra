@@ -38,11 +38,21 @@ namespace Spectra
         private OpenBufferedWaveProvider WaveProvider;
         private ISampleProvider SampleProvider;
 
+        /*
+         * Constructs a SpectraProcessor with an open SerialPort.
+         * Throws an exception if a closed serial port is used.
+         */
         public SpectraProcessor(SerialPort port)
         {
-            Port = port;
+            Port = port ?? throw new ArgumentNullException("SerialPort 'port' cannot be null.");
+            if (!Port.IsOpen) {
+                throw new ArgumentException("SerialPort 'port' must be open.");
+            }
         }
 
+        /*
+         * Starts the SpectraProcessor's 'Process' function on a new thread.
+         */
         public void Start()
         {
             Running = true;
@@ -50,12 +60,20 @@ namespace Spectra
             Thread.Start();
         }
 
+        /*
+         * Instructs the SpectraProcessor's 'Process' inner loop to terminate
+         * at the end of the current frame, then sleeps the 'Stop' function's
+         * caller for 100 milliseconds.
+         */
         public void Stop()
         {
             Running = false;
             Thread.Sleep(100);
         }
 
+        /*
+         * Records system output, processes it, and controls the serial port.
+         */
         private void Process()
         {
             BeginRecording();
@@ -85,6 +103,10 @@ namespace Spectra
             StopRecording();
         }
 
+        /*
+         * Instantiates objects for recording, then sleeps for 1 second
+         * to allow the circular audio buffer to partially fill up.
+         */
         private void BeginRecording()
         {
             Capture = new WasapiLoopbackCapture();
@@ -102,6 +124,9 @@ namespace Spectra
             Thread.Sleep(1000);
         }
 
+        /*
+         * Stops, discards, and nullifies recording objects.
+         */
         private void StopRecording()
         {
             Capture.StopRecording();
@@ -112,6 +137,10 @@ namespace Spectra
             Console.WriteLine("Successfully terminated recording.");
         }
 
+        /*
+         * Maps the first (unmirrored) half of the Fourier transform's
+         * output to the correct buckets logarithmically by frequency.
+         */
         private int[] GenerateIndexMap()
         {
             double logDenom = 6.7;
@@ -126,6 +155,9 @@ namespace Spectra
             return indices;
         }
 
+        /*
+         * Determines how many frequency chunks are allocated to each bucket.
+         */
         private int[] GenerateBucketCounts(int[] indices)
         {
             int[] bucketCounts = new int[LED_COUNT];
@@ -136,6 +168,10 @@ namespace Spectra
             return bucketCounts;
         }
 
+        /*
+         * Samples the last SAMPLE_COUNT samples from the circular buffer
+         * without deleting what was read.
+         */
         private void Sample(float[] samples)
         {
             var recordBuffer = WaveProvider.circularBuffer;
@@ -144,6 +180,10 @@ namespace Spectra
             SampleProvider.Read(samples, 0, SAMPLE_COUNT);
         }
 
+        /*
+         * Generates a frequency distribution for the given audio samples.
+         * Applies PRE_GAIN to the samples before evaluating the Fourier transform.
+         */
         private void Fourier(float[] samples, double[] fourier, Complex[] fourierComplex)
         {
             for (int i = 0; i < samples.Length; i++)
@@ -159,6 +199,10 @@ namespace Spectra
             }
         }
 
+        /*
+         * Clears the buckets array, then sums the fourier transform into those
+         * buckets using the indices array to map frequencies to buckets.
+         */
         private void Bucketize(double[] fourier, int[] indices, double[] buckets)
         {
             int frequencyOffset = (int) (MIN_FREQUENCY / FREQUENCY_RESOLUTION);
@@ -170,6 +214,13 @@ namespace Spectra
             }
         }
 
+        /*
+         * Applies a horizontal blur effect to the buckets array
+         * based on the BLEND factor. The blur intensity increases
+         * as the index increases, up to double the BLEND factor
+         * at the last index in the array. Note, the arrays passed
+         * to this function must be of the same length.
+         */
         private void Blend(double[] buckets, double[] backBuffer)
         {
             Array.Copy(buckets, backBuffer, buckets.Length);
@@ -187,6 +238,10 @@ namespace Spectra
             Array.Copy(backBuffer, buckets, backBuffer.Length);
         }
 
+        /*
+         * Divides each bucket by the logarithm of it's frequency chunk count.
+         * Then multiplies each bucket by POST_GAIN.
+         */
         private void SoftNormalizeByCount(double[] buckets, int[] bucketCounts)
         {
             for (int i = 0; i < buckets.Length; i++)
@@ -196,6 +251,12 @@ namespace Spectra
             }
         }
 
+        /*
+         * Divides each bucket by the logarithm of the maximum bucket
+         * value across the entire array. This compresses the 
+         * display to allow for better peak contrast, but does not
+         * scale up values when the maximum is low.
+         */
         private void SoftNormalizeByMaximum(double[] buckets)
         {
             double denom = Math.Max(Math.Log(buckets.Max() / 51, 2), NORMALIZATION_LIMIT);
@@ -211,6 +272,10 @@ namespace Spectra
             }
         }
 
+        /*
+         * Applies an ABe^(x/B) - A transformation to the bucket values
+         * to improve contrast between high and low values.
+         */
         private void ExponentialAttenuation(double[] buckets)
         {
             double a = 148.4;
@@ -221,6 +286,10 @@ namespace Spectra
             }
         }
 
+        /*
+         * Writes the buckets to the SerialPort as a byte array,
+         * with 1s being appended and prepended.
+         */
         private void Stream(double[] buckets, byte[] stream)
         {
             stream[0] = stream[stream.Length - 1] = 1;
@@ -233,11 +302,17 @@ namespace Spectra
             Port.Write(stream, 0, stream.Length);
         }
 
+        /*
+         * Sleeps the 'Process' thread for FRAME_TIME milliseconds.
+         */
         private void WaitForNextFrame()
         {
             Thread.Sleep(FRAME_TIME);
         }
 
+        /*
+         * Prints an array's elements.
+         */
         private void PrintArray(Array a)
         {
             foreach(var e in a)
@@ -247,6 +322,9 @@ namespace Spectra
             Console.WriteLine();
         }
 
+        /*
+         * Callback that accepts new audio samples from WASAPI.
+         */
         private void OnDataAvailable(object sender, WaveInEventArgs e)
         {
             WaveProvider.AddSamples(e.Buffer, 0, e.BytesRecorded);
