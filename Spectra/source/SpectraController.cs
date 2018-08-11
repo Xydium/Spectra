@@ -98,7 +98,7 @@ namespace Spectra
         }
 
         [SpectraCommand("ca", 0, 10, 
-@"Command Arduino: c {Command Code: Int!} {arg1: Int?} ... {argN: Int?}
+@"Command Arduino: ca {Command Code: Int!} {Arg1: Int?} ... {ArgN: Int?}
     Valid Commands Codes:
         0 = Use 'cl' Spectra Command
       1-3 = Use 'sp' Spectra Command")]
@@ -124,7 +124,7 @@ namespace Spectra
         }
 
         [SpectraCommand("sp", 2, 3, 
-@"Spectrum: sp {Display Mode: Int!} {Arg2: Int!} {Arg3: Int?}
+@"Spectrum: sp {Display Mode: Int!} {Arg2: Int!} {Arg3: Int?} ... {ArgN: Int?}
     Valid Display Modes:
         1 = Static Hue // Arg2[0-255] = Hue // Arg3[0-255] = Frosting
         2 = Static Rainbow // Arg2[0-255] = Frosting
@@ -149,6 +149,7 @@ namespace Spectra
                     if(args.Length != 2)
                     {
                         Console.WriteLine("Invalid argument count. Expected 2, received {0}", args.Length);
+                        return;
                     }
                 }
                 else
@@ -156,6 +157,7 @@ namespace Spectra
                     if(args.Length != 3)
                     {
                         Console.WriteLine("Invalid argument count. Expected 3, received {0}", args.Length);
+                        return;
                     }
                 }
             }
