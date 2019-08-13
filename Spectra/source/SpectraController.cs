@@ -42,6 +42,58 @@ namespace Spectra
             }
         }
 
+        [SpectraCommand("pr", 0, 1, "PreGain: pr {Factor: Int?}")]
+        public void PreGain(String[] args)
+        {
+            switch(args.Length)
+            {
+                case 0:
+                    SpectraProcessor.PRE_GAIN = 1000;
+                    break;
+                case 1:
+                    SpectraProcessor.PRE_GAIN = int.Parse(args[0]);
+                    break;
+                default:
+                    Console.WriteLine("Invalid use of command 'pr'.\n");
+                    break;
+            }
+        }
+
+        [SpectraCommand("po", 0, 1, "PostGain: po {Factor: Int?}")]
+        public void PostGain(String[] args)
+        {
+            switch (args.Length)
+            {
+                case 0:
+                    SpectraProcessor.POST_GAIN = 1000;
+                    break;
+                case 1:
+                    SpectraProcessor.POST_GAIN = int.Parse(args[0]);
+                    break;
+                default:
+                    Console.WriteLine("Invalid use of command 'po'.\n");
+                    break;
+            }
+        }
+
+        [SpectraCommand("bl", 0, 1, "Blend: bl {Factor: Float?}")]
+        public void Blend(String[] args)
+        {
+            switch (args.Length)
+            {
+                case 0:
+                    SpectraProcessor.BLEND = 0.1;
+                    break;
+                case 1:
+                    SpectraProcessor.BLEND = float.Parse(args[0]);
+                    Console.WriteLine(SpectraProcessor.BLEND);
+                    break;
+                default:
+                    Console.WriteLine("Invalid use of command 'bl'.\n");
+                    break;
+            }
+        }
+
         [SpectraCommand("q", 0, 0, "Quit: q")]
         public void Quit(String[] args)
         {
@@ -98,10 +150,12 @@ namespace Spectra
         }
 
         [SpectraCommand("ca", 0, 10, 
-@"Command Arduino: ca {Command Code: Int!} {Arg1: Int?} ... {ArgN: Int?}
+@"Command Arduino: ca {Command Code: Int!} {Arg2: Int?} ... {ArgN: Int?}
     Valid Commands Codes:
         0 = Use 'cl' Spectra Command
-      1-3 = Use 'sp' Spectra Command")]
+      1-3 = Use 'sp' Spectra Command
+       10 = Static Hue Breathing // Arg2[0-255] = Hue // Arg3[1-255] = Breathing Speed // Arg4[0-255] = Max Brightness
+       11 = Rotate Hue Breathing // Arg2[0-255] = Hue Rotation Speed // Arg3[0-255] = Breathing Speed // Arg4[0-255] = Max Brightness")]
         public void CommandArduino(String[] args)
         {
             if(Port == null)
@@ -114,7 +168,14 @@ namespace Spectra
 
             for (int i = 0; i < args.Length; i++)
             {
-                buffer[i] = Byte.Parse(args[i]);
+                try
+                {
+                    buffer[i] = Byte.Parse(args[i]);
+                }
+                catch (Exception e)
+                {
+                    buffer[i] = 0;
+                }
             }
             buffer[0] += 192;
 
@@ -165,6 +226,119 @@ namespace Spectra
             CommandArduino(args);
 
             Processor = new SpectraProcessor(Port);
+            Processor.Start();
+        }
+
+        [SpectraCommand("wv", 2, 3,
+@"Waveform: wv {Display Mode: Int!} {Arg2: Int!} {Arg3: Int?} ... {ArgN: Int?}
+    Valid Display Modes:
+        1 = Static Hue // Arg2[0-255] = Hue // Arg3[0-255] = Frosting
+        2 = Static Rainbow // Arg2[0-255] = Frosting
+        3 = Scrolling Rainbow // Arg2[0-255] = Scroll Rate // Arg 3[0-255] = Frosting")]
+        public void Waveform(String[] args)
+        {
+            if (Port == null)
+            {
+                Connect(null);
+                if (Port == null) return;
+            }
+
+            var mode = Int32.Parse(args[0]);
+            if (mode < 1 || mode > 3)
+            {
+                Console.WriteLine("Invalid Display Mode.");
+                return;
+            }
+            else
+            {
+                if (mode == 2)
+                {
+                    if (args.Length != 2)
+                    {
+                        Console.WriteLine("Invalid argument count. Expected 2, received {0}", args.Length);
+                        return;
+                    }
+                }
+                else
+                {
+                    if (args.Length != 3)
+                    {
+                        Console.WriteLine("Invalid argument count. Expected 3, received {0}", args.Length);
+                        return;
+                    }
+                }
+            }
+
+         
+            CommandArduino(args);
+
+            Processor = new WaveformProcessor(Port);
+            Processor.Start();
+        }
+
+        [SpectraCommand("pl", 2, 6,
+@"Perlin: pl {Display Mode: Int!} {Arg2: Int!} {Arg3: Int?} ... {ArgN: ?}
+    Valid Display Modes:
+        1 = Static Hue // Arg2[0-255] = Hue // Arg3[0-255] = Frosting // Arg4[1-8] = Octaves // Arg5[Float] = X Scale // Arg6[Float] = T Scale
+        2 = Static Rainbow // Arg2[0-255] = Frosting // Arg3[0] // Arg4[1-8] = Octaves // Arg5[Float] = X Scale // Arg6[Float] = T Scale
+        3 = Scrolling Rainbow // Arg2[0-255] = Scroll Rate // Arg 3[0-255] = Frosting // Arg4[1-8] = Octaves // Arg5[Float] = X Scale // Arg6[Float] = T Scale")]
+        public void Perlin(String[] args)
+        {
+            if (Port == null)
+            {
+                Connect(null);
+                if (Port == null) return;
+            }
+
+            var mode = Int32.Parse(args[0]);
+            if (mode < 1 || mode > 3)
+            {
+                Console.WriteLine("Invalid Display Mode.");
+                return;
+            }
+            else
+            {
+                if (mode == 2)
+                {
+                    if (args.Length != 2 && args.Length != 6)
+                    {
+                        Console.WriteLine("Invalid argument count. Expected 2 or 6, received {0}", args.Length);
+                        return;
+                    }
+                }
+                else
+                {
+                    if (args.Length != 3 && args.Length != 6)
+                    {
+                        Console.WriteLine("Invalid argument count. Expected 3 or 6, received {0}", args.Length);
+                        return;
+                    }
+                }
+            }
+
+            if(args.Length == 6)
+            {
+                PerlinProcessor.OCTAVES = int.Parse(args[3]);
+                Console.WriteLine("Perlin Octaves: {0}", PerlinProcessor.OCTAVES);
+                PerlinProcessor.X_SCALE = float.Parse(args[4]);
+                Console.WriteLine("Perlin X Scale: {0}", PerlinProcessor.X_SCALE);
+                PerlinProcessor.T_SCALE = float.Parse(args[5]);
+                Console.WriteLine("Perlin Time Scale: {0}", PerlinProcessor.T_SCALE);
+
+                if(mode == 2)
+                {
+                    CommandArduino(new string[] {args[0], args[1]});
+                } else
+                {
+                    CommandArduino(new string[] { args[0], args[1], args[2] });
+                }
+
+            } else
+            {
+                CommandArduino(args);
+            }
+
+            Processor = new PerlinProcessor(Port);
             Processor.Start();
         }
 

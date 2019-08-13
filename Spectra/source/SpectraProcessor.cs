@@ -14,26 +14,26 @@ namespace Spectra
 	class SpectraProcessor
 	{
         private static readonly int RATE = 48000;
-        private static readonly int SAMPLE_COUNT = 1 << 14;
+        private static readonly int SAMPLE_COUNT = 1 << 13; //Use 13 later
         private static readonly float FREQUENCY_RESOLUTION = (float)RATE / SAMPLE_COUNT;
         private static readonly int FRAME_RATE = 60;
         private static readonly int FRAME_TIME = 1000 / FRAME_RATE;
         private static readonly int BYTES_PER_SAMPLE = 4;
         private static readonly int BITS_PER_SAMPLE = 32;
-        private static readonly int BUFFER_SIZE = 4 * RATE * BYTES_PER_SAMPLE;
+        private static readonly int BUFFER_SIZE = 20 * RATE * BYTES_PER_SAMPLE;
         private static readonly int LED_COUNT = 60;
         private static readonly int MIN_FREQUENCY = 20;
         private static readonly int MAX_FREQUENCY = 16000;
-        private static readonly int PRE_GAIN = 1000;
-        private static readonly int POST_GAIN = 10;
+        public static int PRE_GAIN = 1000;
+        public static int POST_GAIN = 10;
         private static readonly int GAIN_CLIP = 255;
         private static readonly int COUNT_NORMALIZATION_BASE = 6;
         private static readonly double NORMALIZATION_LIMIT = 0.5;
-        private static readonly double BLEND = 0.1;
+        public static double BLEND = 0.1;
 
         private SerialPort Port;
         private Thread Thread;
-        private bool Running;
+        protected bool Running;
         private WasapiLoopbackCapture Capture;
         private OpenBufferedWaveProvider WaveProvider;
         private ISampleProvider SampleProvider;
@@ -74,7 +74,7 @@ namespace Spectra
         /*
          * Records system output, processes it, and controls the serial port.
          */
-        private void Process()
+        virtual protected void Process()
         {
             BeginRecording();
             
@@ -95,7 +95,7 @@ namespace Spectra
                 Blend(buckets, bucketsBackBuffer);
                 SoftNormalizeByCount(buckets, bucketCounts);
                 ExponentialAttenuation(buckets);
-                SoftNormalizeByMaximum(buckets);
+                //SoftNormalizeByMaximum(buckets); //Don't do this later
                 Stream(buckets, streamBuffer);
                 WaitForNextFrame();
             }
@@ -107,7 +107,7 @@ namespace Spectra
          * Instantiates objects for recording, then sleeps for 1 second
          * to allow the circular audio buffer to partially fill up.
          */
-        private void BeginRecording()
+        protected void BeginRecording()
         {
             Capture = new WasapiLoopbackCapture();
 
@@ -127,7 +127,7 @@ namespace Spectra
         /*
          * Stops, discards, and nullifies recording objects.
          */
-        private void StopRecording()
+        protected void StopRecording()
         {
             Capture.StopRecording();
             Capture.Dispose();
@@ -141,7 +141,7 @@ namespace Spectra
          * Maps the first (unmirrored) half of the Fourier transform's
          * output to the correct buckets logarithmically by frequency.
          */
-        private int[] GenerateIndexMap()
+        protected int[] GenerateIndexMap()
         {
             double logDenom = 6.7;
             double logBase = 4.0;
@@ -158,7 +158,7 @@ namespace Spectra
         /*
          * Determines how many frequency chunks are allocated to each bucket.
          */
-        private int[] GenerateBucketCounts(int[] indices)
+        protected int[] GenerateBucketCounts(int[] indices)
         {
             int[] bucketCounts = new int[LED_COUNT];
             for(int i = 0; i < indices.Length; i++)
@@ -172,19 +172,19 @@ namespace Spectra
          * Samples the last SAMPLE_COUNT samples from the circular buffer
          * without deleting what was read.
          */
-        private void Sample(float[] samples)
+        protected void Sample(float[] samples)
         {
             var recordBuffer = WaveProvider.circularBuffer;
-            recordBuffer.readPosition = recordBuffer.writePosition - SAMPLE_COUNT * BYTES_PER_SAMPLE;
+            recordBuffer.readPosition = recordBuffer.writePosition - samples.Length * BYTES_PER_SAMPLE;
             if (recordBuffer.readPosition < 0) recordBuffer.readPosition += BUFFER_SIZE;
-            SampleProvider.Read(samples, 0, SAMPLE_COUNT);
+            SampleProvider.Read(samples, 0, samples.Length);
         }
 
         /*
          * Generates a frequency distribution for the given audio samples.
          * Applies PRE_GAIN to the samples before evaluating the Fourier transform.
          */
-        private void Fourier(float[] samples, double[] fourier, Complex[] fourierComplex)
+        protected void Fourier(float[] samples, double[] fourier, Complex[] fourierComplex)
         {
             for (int i = 0; i < samples.Length; i++)
             {
@@ -203,7 +203,7 @@ namespace Spectra
          * Clears the buckets array, then sums the fourier transform into those
          * buckets using the indices array to map frequencies to buckets.
          */
-        private void Bucketize(double[] fourier, int[] indices, double[] buckets)
+        protected void Bucketize(double[] fourier, int[] indices, double[] buckets)
         {
             int frequencyOffset = (int) (MIN_FREQUENCY / FREQUENCY_RESOLUTION);
             Array.Clear(buckets, 0, buckets.Length);
@@ -221,7 +221,7 @@ namespace Spectra
          * at the last index in the array. Note, the arrays passed
          * to this function must be of the same length.
          */
-        private void Blend(double[] buckets, double[] backBuffer)
+        protected void Blend(double[] buckets, double[] backBuffer)
         {
             Array.Copy(buckets, backBuffer, buckets.Length);
 
@@ -229,7 +229,7 @@ namespace Spectra
 
             for(int i = 0; i < backBuffer.Length; i++)
             {
-                blend = BLEND + BLEND * (i / backBuffer.Length);
+                blend = BLEND;// + BLEND * (i / backBuffer.Length);
                 if (i != 0) backBuffer[i] += buckets[i - 1] * blend;
                 if (i != backBuffer.Length - 1) backBuffer[i] += buckets[i + 1] * blend;
                 backBuffer[i] /= (1 + 2 * blend);
@@ -242,7 +242,7 @@ namespace Spectra
          * Divides each bucket by the logarithm of it's frequency chunk count.
          * Then multiplies each bucket by POST_GAIN.
          */
-        private void SoftNormalizeByCount(double[] buckets, int[] bucketCounts)
+        protected void SoftNormalizeByCount(double[] buckets, int[] bucketCounts)
         {
             for (int i = 0; i < buckets.Length; i++)
             {
@@ -257,7 +257,7 @@ namespace Spectra
          * display to allow for better peak contrast, but does not
          * scale up values when the maximum is low.
          */
-        private void SoftNormalizeByMaximum(double[] buckets)
+        protected void SoftNormalizeByMaximum(double[] buckets)
         {
             double denom = Math.Max(Math.Log(buckets.Max() / 51, 2), NORMALIZATION_LIMIT);
             double result;
@@ -276,7 +276,7 @@ namespace Spectra
          * Applies an ABe^(x/B) - A transformation to the bucket values
          * to improve contrast between high and low values.
          */
-        private void ExponentialAttenuation(double[] buckets)
+        protected void ExponentialAttenuation(double[] buckets)
         {
             double a = 148.4;
 
@@ -290,7 +290,7 @@ namespace Spectra
          * Writes the buckets to the SerialPort as a byte array,
          * with 1s being appended and prepended.
          */
-        private void Stream(double[] buckets, byte[] stream)
+        protected void Stream(double[] buckets, byte[] stream)
         {
             stream[0] = stream[stream.Length - 1] = 1;
 
@@ -305,7 +305,7 @@ namespace Spectra
         /*
          * Sleeps the 'Process' thread for FRAME_TIME milliseconds.
          */
-        private void WaitForNextFrame()
+        protected void WaitForNextFrame()
         {
             Thread.Sleep(FRAME_TIME);
         }
@@ -313,7 +313,7 @@ namespace Spectra
         /*
          * Prints an array's elements.
          */
-        private void PrintArray(Array a)
+        protected void PrintArray(Array a)
         {
             foreach(var e in a)
             {
@@ -325,10 +325,93 @@ namespace Spectra
         /*
          * Callback that accepts new audio samples from WASAPI.
          */
-        private void OnDataAvailable(object sender, WaveInEventArgs e)
+        protected void OnDataAvailable(object sender, WaveInEventArgs e)
         {
             WaveProvider.AddSamples(e.Buffer, 0, e.BytesRecorded);
         }
 
 	}
+
+    class WaveformProcessor: SpectraProcessor
+    {
+        public WaveformProcessor(SerialPort port) : base(port) { }
+
+        override protected void Process()
+        {
+            BeginRecording();
+
+            Thread.Sleep(1000);
+
+            var buckets = new double[60];
+            var buffer = new double[60];
+            var factor = 1000;
+            var scale = 1000;
+            var sampleBuffer = new float[factor * buckets.Length];
+            var stream = new byte[buckets.Length + 2];
+
+            while(Running)
+            {
+                Sample(sampleBuffer);
+                for (int i = 0; i < sampleBuffer.Length; i++)
+                {
+                    sampleBuffer[i] *= scale;
+
+                    sampleBuffer[i] = Math.Max(sampleBuffer[i], 0);
+                    if (i % factor == 0)
+                    {
+                        buckets[buckets.Length - 1 - i / factor] = 0;
+                    }
+                    buckets[buckets.Length - 1 - i / factor] += sampleBuffer[i] / factor;
+                }
+
+                //for(int i = 0; i < buckets.Length / 2; i++)
+                //{
+                //    buckets[29 - i] = buffer[i];
+                //    buckets[30 + i] = buffer[i];
+                //}
+                //PrintArray(stream);
+                Stream(buckets, stream);
+                WaitForNextFrame();
+            }
+
+            StopRecording();
+        }
+    }
+
+    class PerlinProcessor: SpectraProcessor
+    {
+        public static int OCTAVES = 4;
+        public static float PERSISTENCE = 0.65f;
+        public static float X_SCALE = 1f;
+        public static float T_SCALE = 1f;
+
+        private float time = 0.0f;
+
+        public PerlinProcessor(SerialPort port) : base(port) { }
+
+        override protected void Process()
+        {
+            var buckets = new double[60];
+            var buffer = new double[60];
+            var stream = new byte[buckets.Length + 2];
+
+            var perlin = new PerlinNoise(OCTAVES, PERSISTENCE);
+
+            while (Running)
+            {
+                for (int i = 0; i < buckets.Length; i++)
+                {
+                    buckets[i] = perlin.Function2D(i * X_SCALE, time * T_SCALE);
+                    buckets[i] += Math.Sqrt(2) / 2;
+                    buckets[i] *= buckets[i] * buckets[i];
+                    buckets[i] = ((buckets[i] + 1) / 2) * 255;
+                }
+
+                Stream(buckets, stream);
+                WaitForNextFrame();
+
+                time += 1 / 60f;
+            }
+        }
+    }
 }

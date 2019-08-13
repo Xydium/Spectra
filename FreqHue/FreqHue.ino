@@ -20,7 +20,6 @@
 #define DRAW_STATIC_HUE_BREATHING 10
 #define DRAW_ROTATING_HUE_BREATHING 11
 #define DRAW_STATIC_HUE_ROLLING 12
-//#define DRAW_RANDOM_HUE_RIPPLES 13
 
 CRGB leds[NUM_LEDS];
 byte stream[NUM_LEDS];
@@ -94,19 +93,19 @@ void readStream(byte mode) {
 void displayStream(byte mode, byte del) {
   if(mode == DRAW_STATIC_HUE_AUDIO) {
     for(byte i = 0; i < NUM_LEDS; i++) {
-      leds[i] = CHSV(staticHue, 255 - stream[i] * frosting, stream[i]);
+      leds[i] = CHSV(staticHue, 255 * (1 - frosting) + stream[i] * frosting, stream[i]);
     }
   } else if(mode == DRAW_RAINBOW_HUE_AUDIO) {
     for(byte i = 0; i < NUM_LEDS; i++) {
-      leds[i] = CHSV(i * 4, 255 - stream[i] * frosting, stream[i]);
+      leds[i] = CHSV(i * 4, 255 * (1 - frosting) + stream[i] * frosting, stream[i]);
     }
   } else if(mode == DRAW_SCROLLING_HUE_AUDIO) {
     int sum = 0;
     for(byte i = 0; i < NUM_LEDS; i++) {
-      leds[i] = CHSV(i * 4 + timeloop, 255 - stream[i] * frosting, stream[i]); //max((stream[i] - 127) * 2, 0)
+      leds[i] = CHSV(i * 4 - timeloop, 255 * (1 - frosting) + stream[i] * frosting, stream[i]); //max((stream[i] - 127) * 2, 0) 
       sum += stream[i];
     }
-    timeloop += (byte) (sum / (scrollSlow * 51.0));
+    timeloop += (byte) pow((sum / (scrollSlow * 51.0)), 2);
   } else if (mode == DRAW_STATIC_HUE_WAVEFORM) {
     byte next = max((byte) (averageStream() * (1 - mix) + maxStream() * mix), minimum);
     for(byte i = NUM_LEDS - 1; i > 0; i--) {
@@ -264,4 +263,3 @@ else if(mode == DRAW_STATIC_HUE_RIPPLES) {
     if(frequency < 1) frequency = 1;
   }
  */
-
