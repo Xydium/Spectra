@@ -397,11 +397,11 @@ namespace Spectra
 			return commands;
 		}
 
-		public static void Main(string[] args)
-		{
-			var spectra = new SpectraController();
-			spectra.RunSpectraCommandLine();
-		}
+		//public static void Main(string[] args)
+		//{
+		//	var spectra = new SpectraController();
+		//	spectra.RunSpectraCommandLine();
+		//}
 
 	}
 

@@ -67,6 +67,7 @@
     <Compile Include="source\OpenBufferedWaveProvider.cs" />
     <Compile Include="source\Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="source\Spectra.cs" />
     <Compile Include="source\SpectraController.cs" />
     <Compile Include="source\SpectraProcessor.cs" />
   </ItemGroup>
