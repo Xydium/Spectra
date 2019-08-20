@@ -54,6 +54,9 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Linq.Dynamic, Version=1.0.6132.35681, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Linq.Dynamic.1.0.7\lib\net40\System.Linq.Dynamic.dll</HintPath>
+    </Reference>
     <Reference Include="System.Numerics" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -63,13 +66,19 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="source\CircularBuffer.cs" />
-    <Compile Include="source\OpenBufferedWaveProvider.cs" />
-    <Compile Include="source\Program.cs" />
+    <Compile Include="source\old\CircularBuffer.cs" />
+    <Compile Include="source\Generators.cs" />
+    <Compile Include="source\old\OpenBufferedWaveProvider.cs" />
+    <Compile Include="source\Processors.cs" />
+    <Compile Include="source\old\Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="source\Spectra.cs" />
-    <Compile Include="source\SpectraController.cs" />
-    <Compile Include="source\SpectraProcessor.cs" />
+    <Compile Include="source\old\Spectra2.cs" />
+    <Compile Include="source\SpectraCommands.cs" />
+    <Compile Include="source\old\SpectraController.cs" />
+    <Compile Include="source\old\SpectraProcessor.cs" />
+    <Compile Include="source\Utils.cs" />
+    <Compile Include="source\Variant.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
